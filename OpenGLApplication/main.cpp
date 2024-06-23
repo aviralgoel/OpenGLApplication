@@ -61,7 +61,7 @@ static void CombiningTransformationsExample1()
 
 static void CombiningTransformationsExample2()
 {
-    static float Scale = 0.25f;
+    static float Scale = 0.55f;
 
     Matrix4f Scaling(Scale, 0.0f, 0.0f, 0.0f,
         0.0f, Scale, 0.0f, 0.0f,
@@ -95,9 +95,9 @@ static void RenderSceneCB()
 {
     glClear(GL_COLOR_BUFFER_BIT);
 
-    //ScalingExample();
+    ScalingExample();
     //CombiningTransformationsExample1();
-    CombiningTransformationsExample2();
+    //CombiningTransformationsExample2();
 
     glBindBuffer(GL_ARRAY_BUFFER, VBO);
 
