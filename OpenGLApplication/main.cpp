@@ -8,123 +8,131 @@
 #include "ogldev_math_3d.h"
 
 GLuint VBO;
-GLint gScalingLocation;
-
-
-static void ScalingExample()
-{
-    static float Scale = 1.0f;
-    static float Delta = 0.001f;
-
-    Scale += Delta;
-    if ((Scale >= 1.5f) || (Scale <= 0.5)) {
-        Delta *= -1.0f;
-    }
-
-    Matrix4f Scaling(Scale, 0.0f, 0.0f, 0.0f,
-        0.0f, Scale, 0.0f, 0.0f,
-        0.0f, 0.0f, Scale, 0.0f,
-        0.0f, 0.0f, 0.0f, 1.0f);
-
-    glUniformMatrix4fv(gScalingLocation, 1, GL_TRUE, &Scaling.m[0][0]);
-}
-
-
-static void CombiningTransformationsExample1()
-{
-    static float Scale = 1.5f;
-
-    Matrix4f Scaling(Scale, 0.0f, 0.0f, 0.0f,
-        0.0f, Scale, 0.0f, 0.0f,
-        0.0f, 0.0f, Scale, 0.0f,
-        0.0f, 0.0f, 0.0f, 1.0f);
-
-    static float Loc = 0.0f;
-    static float Delta = 0.01f;
-
-    Loc += Delta;
-    if ((Loc >= 0.5f) || (Loc <= -0.5f)) {
-        Delta *= -1.0f;
-    }
-
-    Matrix4f Translation(1.0f, 0.0f, 0.0f, Loc,
-        0.0f, 1.0f, 0.0f, 0.0,
-        0.0f, 0.0f, 1.0f, 0.0,
-        0.0f, 0.0f, 0.0f, 1.0f);
-
-    Matrix4f FinalTransform = Translation * Scaling;
-    //Matrix4f FinalTransform = Scaling * Translation;
-
-    glUniformMatrix4fv(gScalingLocation, 1, GL_TRUE, &FinalTransform.m[0][0]);
-}
-
-
-static void CombiningTransformationsExample2()
-{
-    static float Scale = 0.55f;
-
-    Matrix4f Scaling(Scale, 0.0f, 0.0f, 0.0f,
-        0.0f, Scale, 0.0f, 0.0f,
-        0.0f, 0.0f, Scale, 0.0f,
-        0.0f, 0.0f, 0.0f, 1.0f);
-
-    static float AngleInRadians = 0.0f;
-    static float Delta = 0.001f;
-
-    AngleInRadians += Delta;
-
-    Matrix4f Rotation(cosf(AngleInRadians), -sinf(AngleInRadians), 0.0f, 0.0f,
-        sinf(AngleInRadians), cosf(AngleInRadians), 0.0f, 0.0f,
-        0.0, 0.0f, 1.0f, 0.0f,
-        0.0f, 0.0f, 0.0f, 1.0f);
-
-    static float Loc = 0.5f;
-
-    Matrix4f Translation(1.0f, 0.0f, 0.0f, Loc,
-        0.0f, 1.0f, 0.0f, 0.0,
-        0.0f, 0.0f, 1.0f, 0.0,
-        0.0f, 0.0f, 0.0f, 1.0f);
-
-    Matrix4f FinalTransform = Translation * Rotation * Scaling;
-    //Matrix4f FinalTransform = Rotation * Translation * Scaling;
-
-    glUniformMatrix4fv(gScalingLocation, 1, GL_TRUE, &FinalTransform.m[0][0]);
-}
+GLuint IBO;
+GLint gWorldMatrixLocation;
 
 static void RenderSceneCB()
 {
     glClear(GL_COLOR_BUFFER_BIT);
 
-    ScalingExample();
-    //CombiningTransformationsExample1();
-    //CombiningTransformationsExample2();
+    static float RotationInZ = 0.0f;
+
+    Matrix4f World;
+
+    World.m[0][0] = cosf(RotationInZ); World.m[0][1] = -sinf(RotationInZ); World.m[0][2] = 0.0f; World.m[0][3] = 0.0f;
+    World.m[1][0] = sinf(RotationInZ); World.m[1][1] = cosf(RotationInZ); World.m[1][2] = 0.0f; World.m[1][3] = 0.0f;
+    World.m[2][0] = 0.0;         World.m[2][1] = 0.0f;         World.m[2][2] = 1.0f; World.m[2][3] = 0.0f;
+    World.m[3][0] = 0.0f;        World.m[3][1] = 0.0f;         World.m[3][2] = 0.0f; World.m[3][3] = 1.0f;
+
+    glUniformMatrix4fv(gWorldMatrixLocation, 1, GL_TRUE, &World.m[0][0]);
+
 
     glBindBuffer(GL_ARRAY_BUFFER, VBO);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, IBO);
 
+    // position
     glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), 0);
 
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0);
+    // color
+    glEnableVertexAttribArray(1);
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)(3 * sizeof(float)));
 
-    glDrawArrays(GL_TRIANGLES, 0, 3);
+    glDrawElements(GL_TRIANGLES, 54, GL_UNSIGNED_INT, 0);
 
     glDisableVertexAttribArray(0);
+    glDisableVertexAttribArray(1);
 
     glutPostRedisplay();
 
     glutSwapBuffers();
 }
 
+struct Vertex {
+    Vector3f pos;
+    Vector3f color;
+
+    Vertex() {}
+
+    Vertex(float x, float y)
+    {
+        pos = Vector3f(x, y, 0.0f);
+
+        float red = (float)rand() / (float)RAND_MAX;
+        float green = (float)rand() / (float)RAND_MAX;
+        float blue = (float)rand() / (float)RAND_MAX;
+        color = Vector3f(red, green, blue);
+    }
+};
+
 
 static void CreateVertexBuffer()
 {
-    Vector3f Vertices[3];
-    Vertices[0] = Vector3f(-1.0f, -1.0f, 0.0f);   // bottom left
-    Vertices[1] = Vector3f(1.0f, -1.0f, 0.0f);    // bottom right
-    Vertices[2] = Vector3f(0.0f, 1.0f, 0.0f);     // top
+    Vertex Vertices[19];
+
+    // Center
+    Vertices[0] = Vertex(0.0f, 0.0);
+
+    // Top row
+    Vertices[1] = Vertex(-1.0f, 1.0f);
+    Vertices[2] = Vertex(-0.75f, 1.0f);
+    Vertices[3] = Vertex(-0.50f, 1.0f);
+    Vertices[4] = Vertex(-0.25f, 1.0f);
+    Vertices[5] = Vertex(-0.0f, 1.0f);
+    Vertices[6] = Vertex(0.25f, 1.0f);
+    Vertices[7] = Vertex(0.50f, 1.0f);
+    Vertices[8] = Vertex(0.75f, 1.0f);
+    Vertices[9] = Vertex(1.0f, 1.0f);
+
+    // Bottom row
+    Vertices[10] = Vertex(-1.0f, -1.0f);
+    Vertices[11] = Vertex(-0.75f, -1.0f);
+    Vertices[12] = Vertex(-0.50f, -1.0f);
+    Vertices[13] = Vertex(-0.25f, -1.0f);
+    Vertices[14] = Vertex(-0.0f, -1.0f);
+    Vertices[15] = Vertex(0.25f, -1.0f);
+    Vertices[16] = Vertex(0.50f, -1.0f);
+    Vertices[17] = Vertex(0.75f, -1.0f);
+    Vertices[18] = Vertex(1.0f, -1.0f);
 
     glGenBuffers(1, &VBO);
     glBindBuffer(GL_ARRAY_BUFFER, VBO);
     glBufferData(GL_ARRAY_BUFFER, sizeof(Vertices), Vertices, GL_STATIC_DRAW);
+}
+
+static void CreateIndexBuffer()
+{
+    unsigned int Indices[] = { // Top triangles
+                            0, 2, 1,
+                            0, 3, 2,
+                            0, 4, 3,
+                            0, 5, 4,
+                            0, 6, 5,
+                            0, 7, 6,
+                            0, 8, 7,
+                            0, 9, 8,
+
+                            // Bottom triangles
+                            0, 10, 11,
+                            0, 11, 12,
+                            0, 12, 13,
+                            0, 13, 14,
+                            0, 14, 15,
+                            0, 15, 16,
+                            0, 16, 17,
+                            0, 17, 18,   
+
+                            // Left triangle
+                            0, 1, 10,
+
+                            // Right triangle
+                            0, 18, 9 
+    };
+
+
+    glGenBuffers(1, &IBO);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, IBO);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(Indices), Indices, GL_STATIC_DRAW);
 }
 
 static void AddShader(GLuint ShaderProgram, const char* pShaderText, GLenum ShaderType)
@@ -197,8 +205,8 @@ static void CompileShaders()
         exit(1);
     }
 
-    gScalingLocation = glGetUniformLocation(ShaderProgram, "gScaling");
-    if (gScalingLocation == -1) {
+    gWorldMatrixLocation = glGetUniformLocation(ShaderProgram, "gWorldMatrix");
+    if (gWorldMatrixLocation == -1) {
         printf("Error getting uniform location of 'gScaling'\n");
         exit(1);
     }
@@ -216,16 +224,18 @@ static void CompileShaders()
 
 int main(int argc, char** argv)
 {
+    srand(GetCurrentProcessId());
+
     glutInit(&argc, argv);
     glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGBA | GLUT_DEPTH);
-    int width = 1000;
-    int height = 1000;
+    int width = 1920;
+    int height = 1200;
     glutInitWindowSize(width, height);
 
     int x = 200;
     int y = 100;
     glutInitWindowPosition(x, y);
-    int win = glutCreateWindow("Tutorial 08");
+    int win = glutCreateWindow("Index Buffer Demo");
     printf("window id: %d\n", win);
 
     // Must be done after glut is initialized!
@@ -239,7 +249,7 @@ int main(int argc, char** argv)
     glClearColor(Red, Green, Blue, Alpha);
 
     CreateVertexBuffer();
-
+    CreateIndexBuffer();
     CompileShaders();
 
     glutDisplayFunc(RenderSceneCB);
