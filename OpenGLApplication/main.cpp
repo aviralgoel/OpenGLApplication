@@ -1,3 +1,4 @@
+
 #include <stdio.h>
 #include <string.h>
 
@@ -7,48 +8,58 @@
 
 #include "ogldev_math_3d.h"
 
-#define WINDOW_WIDTH 1200
-#define WINDOW_HEIGHT 1200
-
-
+#define WINDOW_WIDTH  1920
+#define WINDOW_HEIGHT 1080
 
 GLuint VBO;
 GLuint IBO;
-GLint gWorldMatrixLocation;
+GLuint gWorldLocation;
+
 
 static void RenderSceneCB()
 {
     glClear(GL_COLOR_BUFFER_BIT);
 
-    static float RotationInZ = 0.0f;
-    static float Scale = 0.001f;
-    RotationInZ += Scale;
+    static float Scale = 0.0f;
 
-    Matrix4f Rotation(cosf(RotationInZ), 0.0f, -sinf(RotationInZ ), 0.0f,
+    Scale += 0.001f;
+
+
+    Matrix4f Rotation(cosf(Scale), 0.0f, -sinf(Scale), 0.0f,
         0.0f, 1.0f, 0.0f, 0.0f,
-        sinf(RotationInZ), 0.0f, cosf(RotationInZ ), 0.0f,
+        sinf(Scale), 0.0f, cosf(Scale), 0.0f,
         0.0f, 0.0f, 0.0f, 1.0f);
 
     Matrix4f Translation(1.0f, 0.0f, 0.0f, 0.0f,
         0.0f, 1.0f, 0.0f, 0.0f,
-        0.0f, 0.0f, 1.0f, 1.5f,
+        0.0f, 0.0f, 1.0f, 2.0f,
         0.0f, 0.0f, 0.0f, 1.0f);
 
-    float FOV = 90.0f;
-    float tanHalfFOV = tanf(ToRadian(FOV / 2.0f));
-    float f = 1 / tanHalfFOV; 
+    float VFOV = 45.0f;
+    float tanHalfVFOV = tanf(ToRadian(VFOV / 2.0f));
+    float d = 1 / tanHalfVFOV;
 
-    Matrix4f Projection(f, 0.0f, 0.0f, 0.0f,
-        0.0f, f, 0.0f, 0.0f,
-        0.0f, 0.0f, 1.0f, 0.0f,
+    float ar = (float)WINDOW_WIDTH / (float)WINDOW_HEIGHT;
+
+    printf("Aspect ratio %f\n", ar);
+
+    float NearZ = 1.0f;
+    float FarZ = 100.0f;
+
+    float zRange = NearZ - FarZ;
+
+    float A = (-FarZ - NearZ) / zRange;
+    float B = 2.0f * FarZ * NearZ / zRange;
+
+    Matrix4f Projection(d / ar, 0.0f, 0.0f, 0.0f,
+        0.0f, d, 0.0f, 0.0f,
+        0.0f, 0.0f, A, B,
         0.0f, 0.0f, 1.0f, 0.0f);
 
-    Matrix4f World = Projection * Translation * Rotation;
+    Matrix4f FinalMatrix = Projection * Translation * Rotation;
 
-    
-    glUniformMatrix4fv(gWorldMatrixLocation, 1, GL_TRUE, &World.m[0][0]);
+    glUniformMatrix4fv(gWorldLocation, 1, GL_TRUE, &FinalMatrix.m[0][0]);
 
-    // Bind vertex and index buffers
     glBindBuffer(GL_ARRAY_BUFFER, VBO);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, IBO);
 
@@ -60,7 +71,7 @@ static void RenderSceneCB()
     glEnableVertexAttribArray(1);
     glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)(3 * sizeof(float)));
 
-    glDrawElements(GL_TRIANGLES, 54, GL_UNSIGNED_INT, 0);
+    glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0);
 
     glDisableVertexAttribArray(0);
     glDisableVertexAttribArray(1);
@@ -69,6 +80,7 @@ static void RenderSceneCB()
 
     glutSwapBuffers();
 }
+
 
 struct Vertex {
     Vector3f pos;
@@ -109,20 +121,19 @@ static void CreateVertexBuffer()
 static void CreateIndexBuffer()
 {
     unsigned int Indices[] = {
-                                 0, 1, 2,
-                                 1, 3, 4,
-                                 5, 6, 3,
-                                 7, 3, 6,
-                                 2, 4, 7,
-                                 0, 7, 6,
-                                 0, 5, 1,
-                                 1, 5, 3,
-                                 5, 0, 6,
-                                 7, 4, 3,
-                                 2, 1, 4,
-                                 0, 2, 7
+                              0, 1, 2,
+                              1, 3, 4,
+                              5, 6, 3,
+                              7, 3, 6,
+                              2, 4, 7,
+                              0, 7, 6,
+                              0, 5, 1,
+                              1, 5, 3,
+                              5, 0, 6,
+                              7, 4, 3,
+                              2, 1, 4,
+                              0, 2, 7
     };
-
 
     glGenBuffers(1, &IBO);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, IBO);
@@ -199,9 +210,9 @@ static void CompileShaders()
         exit(1);
     }
 
-    gWorldMatrixLocation = glGetUniformLocation(ShaderProgram, "gWorldMatrix");
-    if (gWorldMatrixLocation == -1) {
-        printf("Error getting uniform location of 'gScaling'\n");
+    gWorldLocation = glGetUniformLocation(ShaderProgram, "gWorld");
+    if (gWorldLocation == -1) {
+        printf("Error getting uniform location of 'gWorld'\n");
         exit(1);
     }
 
@@ -218,17 +229,18 @@ static void CompileShaders()
 
 int main(int argc, char** argv)
 {
+
     srand(GetCurrentProcessId());
+
 
     glutInit(&argc, argv);
     glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGBA | GLUT_DEPTH);
- 
     glutInitWindowSize(WINDOW_WIDTH, WINDOW_HEIGHT);
 
     int x = 200;
     int y = 100;
     glutInitWindowPosition(x, y);
-    int win = glutCreateWindow("Index Buffer Demo");
+    int win = glutCreateWindow("Tutorial 12");
     printf("window id: %d\n", win);
 
     // Must be done after glut is initialized!
